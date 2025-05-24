@@ -38,9 +38,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter":
-			m.Selected = true
-			m.Selection = m.hosts[m.cursor].Name
-			return m, tea.Quit
+			if len(m.hosts) > 0 && m.cursor >= 0 && m.cursor < len(m.hosts) {
+				m.Selected = true
+				m.Selection = m.hosts[m.cursor].Name
+				return m, tea.Quit
+			}
 		}
 	}
 	return m, nil

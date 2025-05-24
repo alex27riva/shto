@@ -51,8 +51,10 @@ var rootCmd = &cobra.Command{
 		defer file.Close()
 
 		hostsMap := make(map[string]struct{})
+		hostPorts := make(map[string]string)
 		scanner := bufio.NewScanner(file)
 
+		// Updated parsing logic to handle ports in known_hosts entries
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "|") || line == "" {
@@ -61,7 +63,21 @@ var rootCmd = &cobra.Command{
 			parts := strings.Split(line, " ")
 			hostnames := strings.Split(parts[0], ",")
 			for _, host := range hostnames {
-				hostsMap[host] = struct{}{}
+				var hostname, port string
+				if strings.HasPrefix(host, "[") && strings.Contains(host, "]:") {
+					// Extract hostname and port from [host]:port format
+					endIdx := strings.Index(host, "]")
+					hostname = host[1:endIdx]
+					port = host[endIdx+2:]
+				} else {
+					hostname = host
+					port = "22" // Default port
+				}
+				hostsMap[hostname] = struct{}{}
+				if port != "" {
+					// Store port information in a separate map or structure if needed
+					hostPorts[hostname] = port
+				}
 			}
 		}
 
@@ -117,13 +133,19 @@ var rootCmd = &cobra.Command{
 		for _, entry := range hostEntries {
 			knownHostsSet[entry.Name] = struct{}{}
 		}
+
+		// Update hostEntries to include the parsed port from known_hosts
 		for _, h := range hosts {
 			if _, exists := knownHostsSet[h]; !exists {
+				port := hostPorts[h] // Retrieve the port from the parsed hostPorts map
+				if port == "" {
+					port = "22" // Default port
+				}
 				hostEntries = append(hostEntries, types.Host{
 					Name:     h,
 					IP:       h,
 					Username: sshUser,
-					Port:     "22",
+					Port:     port,
 					Source:   "known_hosts",
 				})
 			}
